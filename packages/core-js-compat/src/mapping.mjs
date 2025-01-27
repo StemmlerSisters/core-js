@@ -66,6 +66,8 @@ export default {
     [108, '19.2'],
     [113, '20.0'],
     [118, '21.0'],
+    [124, '22.0'],
+    [129, '23.0'],
   ],
   // https://github.com/denoland/deno/releases
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/deno.json
@@ -105,6 +107,12 @@ export default {
     [121, '1.41'],
     [123, '1.41.3'],
     [123, '1.42'],
+    [124, '1.43'],
+    [126, '1.44'],
+    [127, '1.45'],
+    [129, '1.46'],
+    [129, '2.0'],
+    [130, '2.1'],
   ],
   // https://releases.electronjs.org/
   // https://github.com/electron/electron/releases
@@ -156,12 +164,18 @@ export default {
     [120, '28.0'],
     [122, '29.0'],
     [124, '30.0'],
+    [126, '31.0'],
+    [128, '32.0'],
+    [130, '33.0'],
+    [132, '34.0'],
+    [133, '35.0'],
   ],
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/opera.json
   ChromeToOpera(chrome) {
     return chrome <= 28 ? 15
          : chrome <= 82 ? chrome - 13
-         : chrome - 14;
+         : chrome <= 129 ? chrome - 14
+         : chrome - 15;
   },
   ChromeToAndroid: [
     [9, '3.0'],
@@ -172,9 +186,7 @@ export default {
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/chrome_android.json
   // https://github.com/mdn/browser-compat-data/blob/main/docs/matching-browser-releases/index.md#version-numbers-for-chrome-for-android
   ChromeToChromeAndroid(chrome) {
-    return chrome <= 18 ? 18
-         : chrome <= 25 ? 25
-         : chrome;
+    return chrome <= 18 ? 18 : Math.max(chrome, 25);
   },
   // https://medium.com/samsung-internet-dev
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/samsunginternet_android.json
@@ -208,6 +220,8 @@ export default {
     [115, '23.0'],
     [117, '24.0'],
     [121, '25.0'],
+    [122, '26.0'],
+    [125, '27.0'],
   ],
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/opera_android.json
   // https://forums.opera.com/category/20/opera-for-android
@@ -251,6 +265,12 @@ export default {
     [119, 79],
     [120, 80],
     [122, 81],
+    [124, 82],
+    [126, 83],
+    [127, 84],
+    [129, 85],
+    [130, 86],
+    [132, 87],
   ],
   // https://developer.oculus.com/documentation/web/browser-release-notes/
   // Need to find another data source since release notes are not available for new versions.
@@ -287,10 +307,13 @@ export default {
     [118, '30.0'],
     [120, '31.0'],
     [122, '32.0'],
+    [124, '33.0'],
+    [126, '34.0'],
+    [128, '35.0'],
   ],
   // https://github.com/mdn/browser-compat-data/blob/main/browsers/firefox_android.json
   FirefoxToFirefoxAndroid(firefox) {
-    return firefox <= 4 ? 4 : firefox;
+    return Math.max(firefox, 4);
   },
   // https://github.com/oven-sh/bun/releases
   // This is the base data. Since it have no direct Safari equals by the

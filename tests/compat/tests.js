@@ -1,5 +1,5 @@
 'use strict';
-/* eslint-disable prefer-regex-literals, radix -- required for testing */
+/* eslint-disable prefer-regex-literals, radix, unicorn/prefer-global-this -- required for testing */
 /* eslint-disable regexp/no-empty-capturing-group, regexp/no-lazy-ends, regexp/no-useless-quantifier -- required for testing */
 var GLOBAL = typeof global != 'undefined' ? global : Function('return this')();
 var WHITESPACES = '\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002' +
@@ -93,7 +93,7 @@ var SYMBOL_REGISTRY = [SYMBOLS_SUPPORT, function () {
 
 var URL_AND_URL_SEARCH_PARAMS_SUPPORT = function () {
   // eslint-disable-next-line unicorn/relative-url-style -- required for testing
-  var url = new URL('b?a=1&b=2&c=3', 'http://a');
+  var url = new URL('b?a=1&b=2&c=3', 'https://a');
   var searchParams = url.searchParams;
   var result = '';
   url.pathname = 'c%20d';
@@ -102,17 +102,20 @@ var URL_AND_URL_SEARCH_PARAMS_SUPPORT = function () {
     result += key + value;
   });
   return searchParams.sort
-    && url.href === 'http://a/c%20d?a=1&c=3'
+    && url.href === 'https://a/c%20d?a=1&c=3'
     && searchParams.get('c') === '3'
     && String(new URLSearchParams('?a=1')) === 'a=1'
     && searchParams[Symbol.iterator]
     && new URL('https://a@b').username === 'a'
     && new URLSearchParams(new URLSearchParams('a=b')).get('a') === 'b'
-    && new URL('http://тест').host === 'xn--e1aybc'
-    && new URL('http://a#б').hash === '#%D0%B1'
+    && new URL('https://тест').host === 'xn--e1aybc'
+    && new URL('https://a#б').hash === '#%D0%B1'
     && result === 'a1c3'
-    && new URL('http://x', undefined).host === 'x';
+    && new URL('https://x', undefined).host === 'x';
 };
+
+// eslint-disable-next-line no-proto -- safe
+var PROTOTYPE_SETTING_AVAILABLE = Object.setPrototypeOf || ({}).__proto__;
 
 var OBJECT_PROTOTYPE_ACCESSORS_SUPPORT = function () {
   try {
@@ -240,7 +243,19 @@ function createSetLike(size) {
   };
 }
 
-function createSetMethodTest(METHOD_NAME) {
+function createSetLikeWithInfinitySize(size) {
+  return {
+    size: size,
+    has: function () {
+      return true;
+    },
+    keys: function () {
+      throw new Error('e');
+    }
+  };
+}
+
+function createSetMethodTest(METHOD_NAME, callback) {
   return function () {
     try {
       new Set()[METHOD_NAME](createSetLike(0));
@@ -250,7 +265,18 @@ function createSetMethodTest(METHOD_NAME) {
         new Set()[METHOD_NAME](createSetLike(-1));
         return false;
       } catch (error2) {
-        return true;
+        if (!callback) return true;
+        // early V8 implementation bug
+        // https://issues.chromium.org/issues/351332634
+        try {
+          new Set()[METHOD_NAME](createSetLikeWithInfinitySize(-Infinity));
+          return false;
+        } catch (error) {
+          var set = new Set();
+          set.add(1);
+          set.add(2);
+          return callback(set[METHOD_NAME](createSetLikeWithInfinitySize(Infinity)));
+        }
       }
     } catch (error) {
       return false;
@@ -266,14 +292,14 @@ function NATIVE_RAW_JSON() {
 
 function IMMEDIATE() {
   return setImmediate && clearImmediate && !(IS_BUN && (function () {
-    var version = global.Bun.version.split('.');
+    var version = Bun.version.split('.');
     return version.length < 3 || version[0] === '0' && (version[1] < 3 || version[1] === '3' && version[2] === '0');
   })());
 }
 
 function TIMERS() {
   return !(/MSIE .\./.test(USERAGENT) || IS_BUN && (function () {
-    var version = global.Bun.version.split('.');
+    var version = Bun.version.split('.');
     return version.length < 3 || version[0] === '0' && (version[1] < 3 || version[1] === '3' && version[2] === '0');
   })());
 }
@@ -338,7 +364,7 @@ GLOBAL.tests = {
     return Symbol.unscopables;
   }],
   'es.error.cause': function () {
-    return Error('e', { cause: 7 }).cause === 7
+    return new Error('e', { cause: 7 }).cause === 7
       && !('cause' in Error.prototype);
   },
   'es.error.to-string': function () {
@@ -358,7 +384,7 @@ GLOBAL.tests = {
     return typeof AggregateError == 'function';
   },
   'es.aggregate-error.cause': function () {
-    return AggregateError([1], 'e', { cause: 7 }).cause === 7
+    return new AggregateError([1], 'e', { cause: 7 }).cause === 7
       && !('cause' in AggregateError.prototype);
   },
   'es.array.at': function () {
@@ -374,6 +400,7 @@ GLOBAL.tests = {
       return { foo: 1 };
     };
 
+    // eslint-disable-next-line es/no-nonstandard-array-prototype-properties -- @@species
     return array1.concat()[0] === array1 && array2.concat().foo === 1;
   },
   'es.array.copy-within': function () {
@@ -395,6 +422,7 @@ GLOBAL.tests = {
     constructor[Symbol.species] = function () {
       return { foo: 1 };
     };
+    // eslint-disable-next-line es/no-nonstandard-array-prototype-properties -- @@species
     return array.filter(Boolean).foo === 1;
   },
   'es.array.find': function () {
@@ -475,6 +503,7 @@ GLOBAL.tests = {
     constructor[Symbol.species] = function () {
       return { foo: 1 };
     };
+    // eslint-disable-next-line es/no-nonstandard-array-prototype-properties -- @@species
     return array.map(function () { return true; }).foo === 1;
   },
   'es.array.of': function () {
@@ -513,6 +542,7 @@ GLOBAL.tests = {
     constructor[Symbol.species] = function () {
       return { foo: 1 };
     };
+    // eslint-disable-next-line es/no-nonstandard-array-prototype-properties -- @@species
     return array.slice().foo === 1;
   },
   'es.array.some': function () {
@@ -569,6 +599,7 @@ GLOBAL.tests = {
     constructor[Symbol.species] = function () {
       return { foo: 1 };
     };
+    // eslint-disable-next-line es/no-nonstandard-array-prototype-properties -- @@species
     return array.splice().foo === 1;
   },
   'es.array.to-reversed': function () {
@@ -673,6 +704,50 @@ GLOBAL.tests = {
   'es.global-this': function () {
     return globalThis;
   },
+  'es.iterator.constructor': function () {
+    try {
+      Iterator({});
+    } catch (error) {
+      return typeof Iterator == 'function'
+        && Iterator.prototype === Object.getPrototypeOf(Object.getPrototypeOf([].values()));
+    }
+  },
+  'es.iterator.drop': function () {
+    return Iterator.prototype.drop;
+  },
+  'es.iterator.every': function () {
+    return Iterator.prototype.every;
+  },
+  'es.iterator.filter': function () {
+    return Iterator.prototype.filter;
+  },
+  'es.iterator.find': function () {
+    return Iterator.prototype.find;
+  },
+  'es.iterator.flat-map': function () {
+    return Iterator.prototype.flatMap;
+  },
+  'es.iterator.for-each': function () {
+    return Iterator.prototype.forEach;
+  },
+  'es.iterator.from': function () {
+    return Iterator.from;
+  },
+  'es.iterator.map': function () {
+    return Iterator.prototype.map;
+  },
+  'es.iterator.reduce': function () {
+    return Iterator.prototype.reduce;
+  },
+  'es.iterator.some': function () {
+    return Iterator.prototype.some;
+  },
+  'es.iterator.take': function () {
+    return Iterator.prototype.take;
+  },
+  'es.iterator.to-array': function () {
+    return Iterator.prototype.toArray;
+  },
   'es.json.stringify': [SYMBOLS_SUPPORT, function () {
     var symbol = Symbol('stringify detection');
     return JSON.stringify([symbol]) === '[null]'
@@ -704,7 +779,10 @@ GLOBAL.tests = {
       && map[Symbol.toStringTag];
   }],
   'es.map.group-by': function () {
-    return Map.groupBy;
+    // https://bugs.webkit.org/show_bug.cgi?id=271524
+    return Map.groupBy('ab', function (it) {
+      return it;
+    }).get('a').length === 1;
   },
   'es.math.acosh': function () {
     // V8 bug: https://code.google.com/p/v8/issues/detail?id=3509
@@ -893,7 +971,10 @@ GLOBAL.tests = {
     return Object.getPrototypeOf('qwe');
   },
   'es.object.group-by': function () {
-    return Object.groupBy;
+    // https://bugs.webkit.org/show_bug.cgi?id=271524
+    return Object.groupBy('ab', function (it) {
+      return it;
+    }).a.length === 1;
   },
   'es.object.has-own': function () {
     return Object.hasOwn;
@@ -972,6 +1053,13 @@ GLOBAL.tests = {
   }],
   'es.promise.reject': PROMISES_SUPPORT,
   'es.promise.resolve': PROMISES_SUPPORT,
+  'es.promise.try': [PROMISES_SUPPORT, function () {
+    var ACCEPT_ARGUMENTS = false;
+    Promise['try'](function (argument) {
+      ACCEPT_ARGUMENTS = argument === 8;
+    }, 8);
+    return ACCEPT_ARGUMENTS;
+  }],
   'es.promise.with-resolvers': [PROMISES_SUPPORT, function () {
     return Promise.withResolvers;
   }],
@@ -1135,6 +1223,25 @@ GLOBAL.tests = {
       && set.has(0)
       && set[Symbol.toStringTag];
   }],
+  'es.set.difference.v2': createSetMethodTest('difference', function (result) {
+    return result.size === 0;
+  }),
+  'es.set.intersection.v2': [createSetMethodTest('intersection', function (result) {
+    return result.size === 2 && result.has(1) && result.has(2);
+  }), function () {
+    return String(Array.from(new Set([1, 2, 3]).intersection(new Set([3, 2])))) === '3,2';
+  }],
+  'es.set.is-disjoint-from.v2': createSetMethodTest('isDisjointFrom', function (result) {
+    return !result;
+  }),
+  'es.set.is-subset-of.v2': createSetMethodTest('isSubsetOf', function (result) {
+    return result;
+  }),
+  'es.set.is-superset-of.v2': createSetMethodTest('isSupersetOf', function (result) {
+    return !result;
+  }),
+  'es.set.symmetric-difference.v2': createSetMethodTest('symmetricDifference'),
+  'es.set.union.v2': createSetMethodTest('union'),
   'es.string.at-alternative': function () {
     return '𠮷'.at(-2) === '\uD842';
   },
@@ -1513,10 +1620,16 @@ GLOBAL.tests = {
   'esnext.suppressed-error.constructor': function () {
     return typeof SuppressedError == 'function'
       && SuppressedError.length === 3
-      && SuppressedError(1, 2, 3, { cause: 4 }).cause !== 4;
+      && new SuppressedError(1, 2, 3, { cause: 4 }).cause !== 4;
   },
   'esnext.array.from-async': function () {
-    return Array.fromAsync;
+    // https://bugs.webkit.org/show_bug.cgi?id=271703
+    var counter = 0;
+    Array.fromAsync.call(function () {
+      counter++;
+      return [];
+    }, { length: 0 });
+    return counter === 1;
   },
   'esnext.array.filter-reject': function () {
     return [].filterReject;
@@ -1593,6 +1706,12 @@ GLOBAL.tests = {
   'esnext.disposable-stack.constructor': function () {
     return typeof DisposableStack == 'function';
   },
+  'esnext.error.is-error': function () {
+    return PROTOTYPE_SETTING_AVAILABLE &&
+      (typeof DOMException != 'function' || Error.isError(new DOMException('DOMException'))) &&
+      Error.isError(new Error('Error', { cause: function () { /* empty */ } })) &&
+      !Error.isError(Object.create(Error.prototype));
+  },
   'esnext.function.demethodize': function () {
     return Function.prototype.demethodize;
   },
@@ -1605,55 +1724,14 @@ GLOBAL.tests = {
   'esnext.function.metadata': function () {
     return Function.prototype[Symbol.metadata] === null;
   },
-  'esnext.iterator.constructor': function () {
-    try {
-      Iterator({});
-    } catch (error) {
-      return typeof Iterator == 'function'
-        && Iterator.prototype === Object.getPrototypeOf(Object.getPrototypeOf([].values()));
-    }
+  'esnext.iterator.concat': function () {
+    return Iterator.concat;
   },
   'esnext.iterator.dispose': function () {
     return [].keys()[Symbol.dispose];
   },
-  'esnext.iterator.drop': function () {
-    return Iterator.prototype.drop;
-  },
-  'esnext.iterator.every': function () {
-    return Iterator.prototype.every;
-  },
-  'esnext.iterator.filter': function () {
-    return Iterator.prototype.filter;
-  },
-  'esnext.iterator.find': function () {
-    return Iterator.prototype.find;
-  },
-  'esnext.iterator.flat-map': function () {
-    return Iterator.prototype.flatMap;
-  },
-  'esnext.iterator.for-each': function () {
-    return Iterator.prototype.forEach;
-  },
-  'esnext.iterator.from': function () {
-    return Iterator.from;
-  },
-  'esnext.iterator.map': function () {
-    return Iterator.prototype.map;
-  },
   'esnext.iterator.range': function () {
     return Iterator.range;
-  },
-  'esnext.iterator.reduce': function () {
-    return Iterator.prototype.reduce;
-  },
-  'esnext.iterator.some': function () {
-    return Iterator.prototype.some;
-  },
-  'esnext.iterator.take': function () {
-    return Iterator.prototype.take;
-  },
-  'esnext.iterator.to-array': function () {
-    return Iterator.prototype.toArray;
   },
   'esnext.iterator.to-async': function () {
     return Iterator.prototype.toAsync;
@@ -1671,9 +1749,6 @@ GLOBAL.tests = {
   'esnext.map.delete-all': function () {
     return Map.prototype.deleteAll;
   },
-  'esnext.map.emplace': function () {
-    return Map.prototype.emplace;
-  },
   'esnext.map.every': function () {
     return Map.prototype.every;
   },
@@ -1688,6 +1763,12 @@ GLOBAL.tests = {
   },
   'esnext.map.from': function () {
     return Map.from;
+  },
+  'esnext.map.get-or-insert': function () {
+    return Map.prototype.getOrInsert;
+  },
+  'esnext.map.get-or-insert-computed': function () {
+    return Map.prototype.getOrInsertComputed;
   },
   'esnext.map.includes': function () {
     return Map.prototype.includes;
@@ -1746,11 +1827,14 @@ GLOBAL.tests = {
   'esnext.math.signbit': function () {
     return Math.signbit;
   },
+  'esnext.math.sum-precise': function () {
+    return Math.sumPrecise;
+  },
   'esnext.number.from-string': function () {
     return Number.fromString;
   },
   'esnext.regexp.escape': function () {
-    return RegExp.escape;
+    return RegExp.escape('ab') === '\\x61b';
   },
   'esnext.set.add-all': function () {
     return Set.prototype.addAll;
@@ -1758,7 +1842,6 @@ GLOBAL.tests = {
   'esnext.set.delete-all': function () {
     return Set.prototype.deleteAll;
   },
-  'esnext.set.difference.v2': createSetMethodTest('difference'),
   'esnext.set.every': function () {
     return Set.prototype.every;
   },
@@ -1771,12 +1854,6 @@ GLOBAL.tests = {
   'esnext.set.from': function () {
     return Set.from;
   },
-  'esnext.set.intersection.v2': [createSetMethodTest('intersection'), function () {
-    return String(Array.from(new Set([1, 2, 3]).intersection(new Set([3, 2])))) === '3,2';
-  }],
-  'esnext.set.is-disjoint-from.v2': createSetMethodTest('isDisjointFrom'),
-  'esnext.set.is-subset-of.v2': createSetMethodTest('isSubsetOf'),
-  'esnext.set.is-superset-of.v2': createSetMethodTest('isSupersetOf'),
   'esnext.set.join': function () {
     return Set.prototype.join;
   },
@@ -1792,8 +1869,6 @@ GLOBAL.tests = {
   'esnext.set.some': function () {
     return Set.prototype.some;
   },
-  'esnext.set.symmetric-difference.v2': createSetMethodTest('symmetricDifference'),
-  'esnext.set.union.v2': createSetMethodTest('union'),
   'esnext.string.code-points': function () {
     return String.prototype.codePoints;
   },
@@ -1807,6 +1882,9 @@ GLOBAL.tests = {
     var descriptor = Object.getOwnPropertyDescriptor(Symbol, 'asyncDispose');
     return descriptor.value && !descriptor.enumerable && !descriptor.configurable && !descriptor.writable;
   },
+  'esnext.symbol.custom-matcher': function () {
+    return Symbol.customMatcher;
+  },
   'esnext.symbol.dispose': function () {
     var descriptor = Object.getOwnPropertyDescriptor(Symbol, 'dispose');
     return descriptor.value && !descriptor.enumerable && !descriptor.configurable && !descriptor.writable;
@@ -1816,9 +1894,6 @@ GLOBAL.tests = {
   },
   'esnext.symbol.is-well-known-symbol': function () {
     return Symbol.isWellKnownSymbol;
-  },
-  'esnext.symbol.matcher': function () {
-    return Symbol.matcher;
   },
   'esnext.symbol.metadata': function () {
     return Symbol.metadata;
@@ -1838,6 +1913,12 @@ GLOBAL.tests = {
   'esnext.uint8-array.from-hex': function () {
     return Uint8Array.fromHex;
   },
+  'esnext.uint8-array.set-from-base64': function () {
+    return Uint8Array.prototype.setFromBase64;
+  },
+  'esnext.uint8-array.set-from-hex': function () {
+    return Uint8Array.prototype.setFromHex;
+  },
   'esnext.uint8-array.to-base64': function () {
     return Uint8Array.prototype.toBase64;
   },
@@ -1847,8 +1928,11 @@ GLOBAL.tests = {
   'esnext.weak-map.delete-all': function () {
     return WeakMap.prototype.deleteAll;
   },
-  'esnext.weak-map.emplace': function () {
-    return WeakMap.prototype.emplace;
+  'esnext.weak-map.get-or-insert': function () {
+    return WeakMap.prototype.getOrInsert;
+  },
+  'esnext.weak-map.get-or-insert-computed': function () {
+    return WeakMap.prototype.getOrInsertComputed;
   },
   'esnext.weak-map.from': function () {
     return WeakMap.from;
@@ -1950,7 +2034,7 @@ GLOBAL.tests = {
       && DOMException.prototype.DATA_CLONE_ERR === 25;
   },
   'web.dom-exception.stack': function () {
-    return !('stack' in Error('1')) || 'stack' in new DOMException();
+    return !('stack' in new Error('1')) || 'stack' in new DOMException();
   },
   'web.dom-exception.to-string-tag': function () {
     return typeof DOMException == 'function'

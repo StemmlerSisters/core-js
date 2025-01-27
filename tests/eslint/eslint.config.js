@@ -2,18 +2,22 @@ import globals from 'globals';
 import confusingBrowserGlobals from 'confusing-browser-globals';
 import parserJSONC from 'jsonc-eslint-parser';
 import pluginArrayFunc from 'eslint-plugin-array-func';
+import pluginCanonical from 'eslint-plugin-canonical';
+import pluginDepend from 'eslint-plugin-depend';
 import pluginESX from 'eslint-plugin-es-x';
 import pluginESlintComments from '@eslint-community/eslint-plugin-eslint-comments';
-import pluginFilenames from 'eslint-plugin-filenames';
 import pluginImport from 'eslint-plugin-import-x';
 import pluginJSONC from 'eslint-plugin-jsonc';
+import pluginMarkdown from '@eslint/markdown';
 import pluginN from 'eslint-plugin-n';
+import * as pluginPackageJSON from 'eslint-plugin-package-json';
 import pluginPromise from 'eslint-plugin-promise';
 import pluginQUnit from 'eslint-plugin-qunit';
 import pluginReDoS from 'eslint-plugin-redos';
 import pluginRegExp from 'eslint-plugin-regexp';
 import pluginSonarJS from 'eslint-plugin-sonarjs';
 import pluginStylisticJS from '@stylistic/eslint-plugin-js';
+import pluginStylisticPlus from '@stylistic/eslint-plugin-plus';
 import pluginUnicorn from 'eslint-plugin-unicorn';
 
 const PACKAGES_NODE_VERSIONS = '8.9.0';
@@ -117,8 +121,11 @@ const base = {
   'no-unused-vars': [ERROR, {
     vars: 'all',
     args: 'after-used',
+    caughtErrors: 'none',
     ignoreRestSiblings: true,
   }],
+  // disallow variable assignments when the value is not used
+  'no-useless-assignment': ERROR,
   // require or disallow the Unicode Byte Order Mark
   'unicode-bom': [ERROR, NEVER],
   // disallow comparisons with the value NaN
@@ -130,7 +137,12 @@ const base = {
   // enforce the use of variables within the scope they are defined
   'block-scoped-var': ERROR,
   // require camel case names
-  camelcase: [ERROR, { properties: NEVER }],
+  camelcase: [ERROR, {
+    properties: NEVER,
+    ignoreDestructuring: true,
+    ignoreImports: true,
+    ignoreGlobals: true,
+  }],
   // enforce default clauses in switch statements to be last
   'default-case-last': ERROR,
   // enforce default parameters to be last
@@ -141,6 +153,11 @@ const base = {
   eqeqeq: [ERROR, 'smart'],
   // require grouped accessor pairs in object literals and classes
   'grouped-accessor-pairs': [ERROR, 'getBeforeSet'],
+  // require identifiers to match a specified regular expression
+  'id-match': [ERROR, '^[$A-Za-z]|(?:[A-Z][A-Z\\d_]*[A-Z\\d])|(?:[$A-Za-z]\\w*[A-Za-z\\d])$', {
+    onlyDeclarations: true,
+    ignoreDestructuring: true,
+  }],
   // require logical assignment operator shorthand
   'logical-assignment-operators': [ERROR, ALWAYS],
   // enforce a maximum depth that blocks can be nested
@@ -162,7 +179,7 @@ const base = {
   // disallow deletion of variables
   'no-delete-var': ERROR,
   // disallow else after a return in an if
-  'no-else-return': ERROR,
+  'no-else-return': [ERROR, { allowElseIf: false }],
   // disallow empty statements
   'no-empty': ERROR,
   // disallow empty functions, except for standalone funcs/arrows
@@ -178,7 +195,7 @@ const base = {
   // disallow unnecessary function binding
   'no-extra-bind': ERROR,
   // disallow unnecessary boolean casts
-  'no-extra-boolean-cast': ERROR,
+  'no-extra-boolean-cast': [ERROR, { enforceForInnerExpressions: true }],
   // disallow unnecessary labels
   'no-extra-label': ERROR,
   // disallow reassignments of native objects
@@ -281,7 +298,18 @@ const base = {
   // require const declarations for variables that are never reassigned after declared
   'prefer-const': [ERROR, { destructuring: 'all' }],
   // require destructuring from arrays and/or objects
-  'prefer-destructuring': ERROR,
+  'prefer-destructuring': [ERROR, {
+    VariableDeclarator: {
+      array: true,
+      object: true,
+    },
+    AssignmentExpression: {
+      array: true,
+      object: false,
+    },
+  }, {
+    enforceForRenamedProperties: false,
+  }],
   // prefer the exponentiation operator over `Math.pow()`
   'prefer-exponentiation-operator': ERROR,
   // disallow `parseInt()` and `Number.parseInt()` in favor of binary, octal, and hexadecimal literals
@@ -423,8 +451,12 @@ const base = {
   '@stylistic/js/template-tag-spacing': [ERROR, NEVER],
   // require spacing around the `*` in `yield *` expressions
   '@stylistic/js/yield-star-spacing': [ERROR, 'both'],
+  // enforce consistent line breaks after opening and before closing braces
+  '@stylistic/plus/curly-newline': [ERROR, { consistent: true }],
 
   // import:
+  // forbid any invalid exports, i.e. re-export of the same name
+  'import/export': ERROR,
   // ensure all imports appear before other statements
   'import/first': ERROR,
   // enforce a newline after import statements
@@ -449,6 +481,8 @@ const base = {
   'import/no-unresolved': [ERROR, { commonjs: true }],
   // forbid useless path segments
   'import/no-useless-path-segments': ERROR,
+  // forbid Webpack loader syntax in imports
+  'import/no-webpack-loader-syntax': ERROR,
 
   // node:
   // enforce the style of file extensions in `import` declarations
@@ -459,8 +493,6 @@ const base = {
   'node/no-deprecated-api': ERROR,
   // disallow the assignment to `exports`
   'node/no-exports-assign': ERROR,
-  // disallow third-party modules which are hiding core modules
-  'node/no-hide-core-modules': ERROR,
   // disallow require calls to be mixed with regular variable declarations
   'node/no-mixed-requires': [ERROR, { grouping: true, allowCall: false }],
   // disallow new operators with calls to require
@@ -494,9 +526,11 @@ const base = {
   'array-func/no-unnecessary-this-arg': ERROR,
 
   // promise:
+  // enforces the use of `catch()` on un-returned promises
+  'promise/catch-or-return': ERROR,
   // avoid calling `cb()` inside of a `then()` or `catch()`
   'promise/no-callback-in-promise': ERROR,
-  // disallow creating new promises with paths that resolve multiple times (no-multiple-resolved)
+  // disallow creating new promises with paths that resolve multiple times
   'promise/no-multiple-resolved': ERROR,
   // avoid nested `then()` or `catch()` statements
   'promise/no-nesting': ERROR,
@@ -516,13 +550,25 @@ const base = {
   // prefer `async` / `await` to the callback pattern
   'promise/prefer-await-to-callbacks': ERROR,
   // prefer `await` to `then()` / `catch()` / `finally()` for reading `Promise` values
-  'promise/prefer-await-to-then': ERROR,
+  'promise/prefer-await-to-then': [ERROR, { strict: true }],
+  // prefer catch to `then(a, b)` / `then(null, b)` for handling errors
+  'promise/prefer-catch': ERROR,
+  // disallow use of non-standard `Promise` static methods
+  'promise/spec-only': [OFF, { allowedMethods: [
+    'prototype', // `eslint-plugin-promise` bug, https://github.com/eslint-community/eslint-plugin-promise/issues/533
+    'try',
+    'undefined', // `eslint-plugin-promise` bug, https://github.com/eslint-community/eslint-plugin-promise/issues/534
+  ] }],
   // ensures the proper number of arguments are passed to `Promise` functions
   'promise/valid-params': ERROR,
 
   // unicorn
   // enforce a specific parameter name in `catch` clauses
   'unicorn/catch-error-name': [ERROR, { name: ERROR, ignore: [/^err/] }],
+  // prefer consistent types when spreading a ternary in an array literal
+  'unicorn/consistent-empty-array-spread': ERROR,
+  // enforce consistent style for element existence checks with `indexOf()`, `lastIndexOf()`, `findIndex()`, and `findLastIndex()`
+  'unicorn/consistent-existence-index-check': ERROR,
   // enforce correct `Error` subclassing
   'unicorn/custom-error-definition': ERROR,
   // enforce passing a message value when throwing a built-in error
@@ -541,10 +587,16 @@ const base = {
   'unicorn/no-console-spaces': ERROR,
   // enforce the use of unicode escapes instead of hexadecimal escapes
   'unicorn/no-hex-escape': ERROR,
+  // disallow invalid options in `fetch` and `Request`
+  'unicorn/no-invalid-fetch-options': ERROR,
   // prevent calling `EventTarget#removeEventListener()` with the result of an expression
   'unicorn/no-invalid-remove-event-listener': ERROR,
+  // disallow using `.length` as the end argument of `{ Array,String,TypedArray }#slice()`
+  'unicorn/no-length-as-slice-end': ERROR,
   // disallow `if` statements as the only statement in `if` blocks without `else`
   'unicorn/no-lonely-if': ERROR,
+  // disallow negated expression in equality check
+  'unicorn/no-negation-in-equality-check': ERROR,
   // enforce the use of `Buffer.from()` and `Buffer.alloc()` instead of the deprecated `new Buffer()`
   'unicorn/no-new-buffer': ERROR,
   // disallow passing single-element arrays to `Promise` methods
@@ -584,7 +636,7 @@ const base = {
     hexadecimal: { minimumDigits: 0, groupLength: 2 },
   }],
   // prefer `.find()` over the first element from `.filter()`
-  'unicorn/prefer-array-find': ERROR,
+  'unicorn/prefer-array-find': [ERROR, { checkFromLast: true }],
   // use `.flat()` to flatten an array of arrays
   'unicorn/prefer-array-flat': ERROR,
   // use `.flatMap()` to map and then flatten an array instead of using `.map().flat()`
@@ -603,12 +655,16 @@ const base = {
   'unicorn/prefer-default-parameters': ERROR,
   // prefer `EventTarget` over `EventEmitter`
   'unicorn/prefer-event-target': ERROR,
+  // prefer `globalThis` over `window`, `self`, and `global`
+  'unicorn/prefer-global-this': ERROR,
   // prefer `.includes()` over `.indexOf()` and `Array#some()` when checking for existence or non-existence
   'unicorn/prefer-includes': ERROR,
   // prefer reading a `JSON` file as a buffer
   'unicorn/prefer-json-parse-buffer': ERROR,
   // prefer using a logical operator over a ternary
   'unicorn/prefer-logical-operator-over-ternary': ERROR,
+  // prefer `Math.min()` and `Math.max()` over ternaries for simple comparisons
+  'unicorn/prefer-math-min-max': ERROR,
   // prefer modern `Math` APIs over legacy patterns
   'unicorn/prefer-modern-math-apis': ERROR,
   // prefer negative index over `.length - index` when possible
@@ -619,6 +675,8 @@ const base = {
   'unicorn/prefer-object-from-entries': ERROR,
   // prefer omitting the `catch` binding parameter
   'unicorn/prefer-optional-catch-binding': ERROR,
+  // prefer using `structuredClone` to create a deep clone
+  'unicorn/prefer-structured-clone': ERROR,
   // prefer using `Set#size` instead of `Array#length`
   'unicorn/prefer-set-size': ERROR,
   // prefer `String#replaceAll()` over regex searches with the global flag
@@ -647,6 +705,36 @@ const base = {
   'unicorn/throw-new-error': ERROR,
 
   // sonarjs
+  // alternatives in regular expressions should be grouped when used with anchors
+  'sonarjs/anchor-precedence': ERROR,
+  // arguments to built-in functions should match documented types
+  'sonarjs/argument-type': OFF, // it seems does not work
+  // bitwise operators should not be used in boolean contexts
+  'sonarjs/bitwise-operators': ERROR,
+  // function call arguments should not start on new lines
+  'sonarjs/call-argument-line': ERROR,
+  // class names should comply with a naming convention
+  'sonarjs/class-name': [ERROR, { format: '^[A-Z$][a-zA-Z0-9]*$' }],
+  // comma and logical `OR` operators should not be used in switch cases
+  'sonarjs/comma-or-logical-or-case': ERROR,
+  // cyclomatic complexity of functions should not be too high
+  'sonarjs/cyclomatic-complexity': [OFF, { threshold: 16 }],
+  // expressions should not be too complex
+  'sonarjs/expression-complexity': [OFF, { max: 3 }],
+  // `in` should not be used with primitive types
+  'sonarjs/in-operator-type-error': ERROR,
+  // functions should be called consistently with or without `new`
+  'sonarjs/inconsistent-function-call': ERROR,
+  // `new` should only be used with functions and classes
+  'sonarjs/new-operator-misuse': [ERROR, { considerJSDoc: false }],
+  // `Array#{ sort, toSorted }` should use a compare function
+  'sonarjs/no-alphabetical-sort': ERROR,
+  // `delete` should not be used on arrays
+  'sonarjs/no-array-delete': ERROR,
+  // array indexes should be numeric
+  'sonarjs/no-associative-arrays': ERROR,
+  // `switch` statements should not contain non-case labels
+  'sonarjs/no-case-label-in-switch': ERROR,
   // collection sizes and array length comparisons should make sense
   'sonarjs/no-collection-size-mischeck': ERROR,
   // two branches in a conditional structure should not have exactly the same implementation
@@ -657,30 +745,78 @@ const base = {
   'sonarjs/no-empty-collection': ERROR,
   // function calls should not pass extra arguments
   'sonarjs/no-extra-arguments': ERROR,
+  // `for-in` should not be used with iterables
+  'sonarjs/no-for-in-iterable': ERROR,
+  // global `this` object should not be used
+  'sonarjs/no-global-this': ERROR,
   // boolean expressions should not be gratuitous
   'sonarjs/no-gratuitous-expressions': ERROR,
+  // `in` should not be used on arrays
+  'sonarjs/no-in-misuse': ERROR,
+  // strings and non-strings should not be added
+  'sonarjs/no-incorrect-string-concat': ERROR,
+  // `await` should only be used with promises
+  'sonarjs/no-invalid-await': ERROR,
+  // function returns should not be invariant
+  'sonarjs/no-invariant-returns': ERROR,
+  // literals should not be used as functions
+  'sonarjs/no-literal-call': ERROR,
+  // array-mutating methods should not be used misleadingly
+  'sonarjs/no-misleading-array-reverse': ERROR,
+  // assignments should not be redundant
+  'sonarjs/no-redundant-assignments': ERROR,
   // boolean literals should not be redundant
   'sonarjs/no-redundant-boolean': ERROR,
   // jump statements should not be redundant
   'sonarjs/no-redundant-jump': ERROR,
+  // redundant pairs of parentheses should be removed
+  'sonarjs/no-redundant-parentheses': ERROR,
+  // variables should be defined before being used
+  'sonarjs/no-reference-error': ERROR,
   // conditionals should start on new lines
   'sonarjs/no-same-line-conditional': ERROR,
   // `switch` statements should have at least 3 `case` clauses
   'sonarjs/no-small-switch': ERROR,
+  // promise rejections should not be caught by `try` blocks
+  'sonarjs/no-try-promise': ERROR,
+  // `undefined` should not be passed as the value of optional parameters
+  'sonarjs/no-undefined-argument': ERROR,
+  // errors should not be created without being thrown
+  'sonarjs/no-unthrown-error': ERROR,
   // collection and array contents should be used
   'sonarjs/no-unused-collection': ERROR,
   // the output of functions that don't return anything should not be used
   'sonarjs/no-use-of-empty-return-value': ERROR,
+  // values should not be uselessly incremented
+  'sonarjs/no-useless-increment': ERROR,
   // non-existent operators `=+`, `=-` and `=!` should not be used
   'sonarjs/non-existent-operator': ERROR,
+  // properties of variables with `null` or `undefined` values should not be accessed
+  'sonarjs/null-dereference': ERROR, // it seems does not work
+  // arithmetic operations should not result in `NaN`
+  'sonarjs/operation-returning-nan': ERROR,
   // local variables should not be declared and then immediately returned or thrown
   'sonarjs/prefer-immediate-return': ERROR,
   // object literal syntax should be used
   'sonarjs/prefer-object-literal': ERROR,
+  // shorthand promises should be used
+  'sonarjs/prefer-promise-shorthand': ERROR,
   // return of boolean expressions should not be wrapped into an `if-then-else` statement
   'sonarjs/prefer-single-boolean-return': ERROR,
   // a `while` loop should be used instead of a `for` loop with condition only
   'sonarjs/prefer-while': ERROR,
+  // using slow regular expressions is security-sensitive
+  'sonarjs/slow-regex': ERROR,
+  // regular expressions with the global flag should be used with caution
+  'sonarjs/stateful-regex': ERROR,
+  // comparison operators should not be used with strings
+  'sonarjs/strings-comparison': ERROR,
+  // `super()` should be invoked appropriately
+  'sonarjs/super-invocation': ERROR,
+  // results of operations on strings should not be ignored
+  'sonarjs/useless-string-operation': ERROR,
+  // values not convertible to numbers should not be used in numeric comparisons
+  'sonarjs/values-not-convertible-to-numbers': ERROR,
 
   // regexp
   // disallow confusing quantifiers
@@ -865,6 +1001,11 @@ const base = {
   'eslint-comments/no-unused-enable': ERROR,
   // require include descriptions in eslint directive-comments
   'eslint-comments/require-description': ERROR,
+
+  // suggest better alternatives to some dependencies
+  'depend/ban-dependencies': [ERROR, { allowed: [
+    'mkdirp', // TODO: drop from `core-js@4`
+  ] }],
 };
 
 const noAsyncAwait = {
@@ -918,6 +1059,280 @@ const useES3Syntax = {
   'unicorn/prefer-optional-catch-binding': OFF,
 };
 
+const forbidNonStandardBuiltIns = {
+  // disallow non-standard built-in methods
+  'es/no-nonstandard-array-properties': ERROR,
+  'es/no-nonstandard-array-prototype-properties': ERROR,
+  'es/no-nonstandard-arraybuffer-properties': ERROR,
+  'es/no-nonstandard-arraybuffer-prototype-properties': ERROR,
+  'es/no-nonstandard-atomics-properties': ERROR,
+  'es/no-nonstandard-bigint-properties': ERROR,
+  'es/no-nonstandard-bigint-prototype-properties': ERROR,
+  'es/no-nonstandard-boolean-properties': ERROR,
+  'es/no-nonstandard-boolean-prototype-properties': ERROR,
+  'es/no-nonstandard-dataview-properties': ERROR,
+  'es/no-nonstandard-dataview-prototype-properties': ERROR,
+  'es/no-nonstandard-date-properties': ERROR,
+  'es/no-nonstandard-date-prototype-properties': ERROR,
+  'es/no-nonstandard-finalizationregistry-properties': ERROR,
+  'es/no-nonstandard-finalizationregistry-prototype-properties': ERROR,
+  'es/no-nonstandard-function-properties': ERROR,
+  'es/no-nonstandard-intl-collator-properties': ERROR,
+  'es/no-nonstandard-intl-collator-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-datetimeformat-properties': ERROR,
+  'es/no-nonstandard-intl-datetimeformat-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-displaynames-properties': ERROR,
+  'es/no-nonstandard-intl-displaynames-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-listformat-properties': ERROR,
+  'es/no-nonstandard-intl-listformat-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-locale-properties': ERROR,
+  'es/no-nonstandard-intl-locale-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-numberformat-properties': ERROR,
+  'es/no-nonstandard-intl-numberformat-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-pluralrules-properties': ERROR,
+  'es/no-nonstandard-intl-pluralrules-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-properties': ERROR,
+  'es/no-nonstandard-intl-relativetimeformat-properties': ERROR,
+  'es/no-nonstandard-intl-relativetimeformat-prototype-properties': ERROR,
+  'es/no-nonstandard-intl-segmenter-properties': ERROR,
+  'es/no-nonstandard-intl-segmenter-prototype-properties': ERROR,
+  'es/no-nonstandard-iterator-properties': ERROR,
+  'es/no-nonstandard-iterator-prototype-properties': ERROR,
+  'es/no-nonstandard-json-properties': ERROR,
+  'es/no-nonstandard-map-properties': ERROR,
+  'es/no-nonstandard-map-prototype-properties': ERROR,
+  'es/no-nonstandard-math-properties': ERROR,
+  'es/no-nonstandard-number-properties': ERROR,
+  'es/no-nonstandard-number-prototype-properties': ERROR,
+  'es/no-nonstandard-object-properties': ERROR,
+  'es/no-nonstandard-promise-properties': ERROR,
+  'es/no-nonstandard-promise-prototype-properties': ERROR,
+  'es/no-nonstandard-proxy-properties': ERROR,
+  'es/no-nonstandard-reflect-properties': ERROR,
+  'es/no-nonstandard-regexp-properties': ERROR,
+  'es/no-nonstandard-regexp-prototype-properties': ERROR,
+  'es/no-nonstandard-set-properties': ERROR,
+  'es/no-nonstandard-set-prototype-properties': ERROR,
+  'es/no-nonstandard-sharedarraybuffer-properties': ERROR,
+  'es/no-nonstandard-sharedarraybuffer-prototype-properties': ERROR,
+  'es/no-nonstandard-string-properties': ERROR,
+  'es/no-nonstandard-string-prototype-properties': ERROR,
+  'es/no-nonstandard-symbol-properties': [ERROR, { allow: [
+    'sham', // non-standard flag
+  ] }],
+  'es/no-nonstandard-symbol-prototype-properties': ERROR,
+  'es/no-nonstandard-typed-array-properties': ERROR,
+  'es/no-nonstandard-typed-array-prototype-properties': ERROR,
+  'es/no-nonstandard-weakmap-properties': ERROR,
+  'es/no-nonstandard-weakmap-prototype-properties': ERROR,
+  'es/no-nonstandard-weakref-properties': ERROR,
+  'es/no-nonstandard-weakref-prototype-properties': ERROR,
+  'es/no-nonstandard-weakset-properties': ERROR,
+  'es/no-nonstandard-weakset-prototype-properties': ERROR,
+};
+
+const forbidCompletelyNonExistentBuiltIns = {
+  ...forbidNonStandardBuiltIns,
+  // disallow non-standard built-in methods
+  'es/no-nonstandard-array-properties': [ERROR, { allow: [
+    'fromAsync',
+    'isTemplateObject',
+  ] }],
+  'es/no-nonstandard-array-prototype-properties': [ERROR, { allow: [
+    'filterReject',
+    'uniqueBy',
+    // TODO: drop from `core-js@4`
+    'filterOut',
+    'group',
+    'groupBy',
+    'groupByToMap',
+    'groupToMap',
+    'lastIndex',
+    'lastItem',
+  ] }],
+  'es/no-nonstandard-bigint-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'range',
+  ] }],
+  'es/no-nonstandard-dataview-prototype-properties': [ERROR, { allow: [
+    'getFloat16',
+    'getUint8Clamped',
+    'setFloat16',
+    'setUint8Clamped',
+  ] }],
+  'es/no-nonstandard-function-properties': [ERROR, { allow: [
+    'isCallable',
+    'isConstructor',
+  ] }],
+  'es/no-nonstandard-iterator-properties': [ERROR, { allow: [
+    'concat',
+    'range',
+  ] }],
+  'es/no-nonstandard-iterator-prototype-properties': [ERROR, { allow: [
+    'toAsync',
+    // TODO: drop from `core-js@4`
+    'asIndexedPairs',
+    'indexed',
+  ] }],
+  'es/no-nonstandard-json-properties': [ERROR, { allow: [
+    'isRawJSON',
+    'rawJSON',
+  ] }],
+  'es/no-nonstandard-map-properties': [ERROR, { allow: [
+    'from',
+    'of',
+    // TODO: drop from `core-js@4`
+    'keyBy',
+  ] }],
+  'es/no-nonstandard-map-prototype-properties': [ERROR, { allow: [
+    'getOrInsert',
+    'getOrInsertComputed',
+    // TODO: drop from `core-js@4`
+    'deleteAll',
+    'emplace',
+    'every',
+    'filter',
+    'find',
+    'findKey',
+    'includes',
+    'keyOf',
+    'mapKeys',
+    'mapValues',
+    'merge',
+    'reduce',
+    'some',
+    'update',
+    'updateOrInsert',
+    'upsert',
+  ] }],
+  'es/no-nonstandard-math-properties': [ERROR, { allow: [
+    'f16round',
+    'sumPrecise',
+    // TODO: drop from `core-js@4`
+    'DEG_PER_RAD',
+    'RAD_PER_DEG',
+    'clamp',
+    'degrees',
+    'fscale',
+    'iaddh',
+    'imulh',
+    'isubh',
+    'radians',
+    'scale',
+    'seededPRNG',
+    'signbit',
+    'umulh',
+  ] }],
+  'es/no-nonstandard-number-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'fromString',
+    'range',
+  ] }],
+  'es/no-nonstandard-object-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'iterateEntries',
+    'iterateKeys',
+    'iterateValues',
+  ] }],
+  'es/no-nonstandard-reflect-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'defineMetadata',
+    'deleteMetadata',
+    'getMetadata',
+    'getMetadataKeys',
+    'getOwnMetadata',
+    'getOwnMetadataKeys',
+    'hasMetadata',
+    'hasOwnMetadata',
+    'metadata',
+  ] }],
+  'es/no-nonstandard-regexp-properties': [ERROR, { allow: [
+    'escape',
+  ] }],
+  'es/no-nonstandard-set-properties': [ERROR, { allow: [
+    'from',
+    'of',
+  ] }],
+  'es/no-nonstandard-set-prototype-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'addAll',
+    'deleteAll',
+    'every',
+    'filter',
+    'find',
+    'join',
+    'map',
+    'reduce',
+    'some',
+  ] }],
+  'es/no-nonstandard-string-properties': [ERROR, { allow: [
+    'cooked',
+    'dedent',
+  ] }],
+  'es/no-nonstandard-string-prototype-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'codePoints',
+  ] }],
+  'es/no-nonstandard-symbol-properties': [ERROR, { allow: [
+    'asyncDispose',
+    'customMatcher',
+    'dispose',
+    'isRegisteredSymbol',
+    'isWellKnownSymbol',
+    'metadata',
+    'sham', // non-standard flag
+    // TODO: drop from `core-js@4`
+    'isRegistered',
+    'isWellKnown',
+    'matcher',
+    'metadataKey',
+    'observable',
+    'patternMatch',
+    'replaceAll',
+    'useSetter',
+    'useSimple',
+  ] }],
+  'es/no-nonstandard-typed-array-properties': [ERROR, { allow: [
+    'fromBase64',
+    'fromHex',
+    // TODO: drop from `core-js@4`
+    'fromAsync',
+  ] }],
+  'es/no-nonstandard-typed-array-prototype-properties': [ERROR, { allow: [
+    'filterReject',
+    'uniqueBy',
+    // TODO: drop from `core-js@4`
+    'filterOut',
+    'groupBy',
+    'setFromBase64',
+    'setFromHex',
+    'toBase64',
+    'toHex',
+    'toSpliced',
+  ] }],
+  'es/no-nonstandard-weakmap-properties': [ERROR, { allow: [
+    'from',
+    'of',
+  ] }],
+  'es/no-nonstandard-weakmap-prototype-properties': [ERROR, { allow: [
+    'getOrInsert',
+    'getOrInsertComputed',
+    // TODO: drop from `core-js@4`
+    'deleteAll',
+    'emplace',
+    'upsert',
+  ] }],
+  'es/no-nonstandard-weakset-properties': [ERROR, { allow: [
+    'from',
+    'of',
+  ] }],
+  'es/no-nonstandard-weakset-prototype-properties': [ERROR, { allow: [
+    // TODO: drop from `core-js@4`
+    'addAll',
+    'deleteAll',
+  ] }],
+};
+
 const forbidESAnnexBBuiltIns = {
   'es/no-date-prototype-getyear-setyear': ERROR,
   'es/no-date-prototype-togmtstring': ERROR,
@@ -959,6 +1374,8 @@ const forbidES5BuiltIns = {
   'es/no-string-prototype-trim': ERROR,
   // prefer `Date.now()` to get the number of milliseconds since the Unix Epoch
   'unicorn/prefer-date-now': OFF,
+  // prefer `globalThis` over `window`, `self`, and `global`
+  'unicorn/prefer-global-this': OFF,
 };
 
 const forbidES2015BuiltIns = {
@@ -1077,11 +1494,12 @@ const forbidES2021BuiltIns = {
 const forbidES2022BuiltIns = {
   // prefer `Object.hasOwn`
   'prefer-object-has-own': OFF,
-  'es/no-array-string-prototype-at': ERROR,
+  'es/no-array-prototype-at': ERROR,
   'es/no-error-cause': ERROR,
   'es/no-object-hasown': ERROR,
   'es/no-regexp-d-flag': ERROR,
   'es/no-regexp-unicode-property-escapes-2022': ERROR,
+  'es/no-string-prototype-at': ERROR,
   // prefer `.at()` method for index access and `String#charAt()`
   'unicorn/prefer-at': OFF,
 };
@@ -1098,11 +1516,36 @@ const forbidES2023BuiltIns = {
 const forbidES2024BuiltIns = {
   'es/no-arraybuffer-prototype-transfer': ERROR,
   'es/no-atomics-waitasync': ERROR,
-  'es/no-object-map-groupby': ERROR,
+  'es/no-map-groupby': ERROR,
+  'es/no-object-groupby': ERROR,
   'es/no-promise-withresolvers': ERROR,
   'es/no-regexp-v-flag': ERROR,
   'es/no-resizable-and-growable-arraybuffers': ERROR,
-  'es/no-string-prototype-iswellformed-towellformed': ERROR,
+  'es/no-string-prototype-iswellformed': ERROR,
+  'es/no-string-prototype-towellformed': ERROR,
+};
+
+const forbidES2025BuiltIns = {
+  'es/no-iterator': ERROR,
+  'es/no-iterator-prototype-drop': ERROR,
+  'es/no-iterator-prototype-every': ERROR,
+  'es/no-iterator-prototype-filter': ERROR,
+  'es/no-iterator-prototype-find': ERROR,
+  'es/no-iterator-prototype-flatmap': ERROR,
+  'es/no-iterator-prototype-foreach': ERROR,
+  'es/no-iterator-prototype-map': ERROR,
+  'es/no-iterator-prototype-reduce': ERROR,
+  'es/no-iterator-prototype-some': ERROR,
+  'es/no-iterator-prototype-take': ERROR,
+  'es/no-iterator-prototype-toarray': ERROR,
+  'es/no-promise-try': ERROR,
+  'es/no-set-prototype-difference': ERROR,
+  'es/no-set-prototype-intersection': ERROR,
+  'es/no-set-prototype-isdisjointfrom': ERROR,
+  'es/no-set-prototype-issubsetof': ERROR,
+  'es/no-set-prototype-issupersetof': ERROR,
+  'es/no-set-prototype-symmetricdifference': ERROR,
+  'es/no-set-prototype-union': ERROR,
 };
 
 const forbidES2016IntlBuiltIns = {
@@ -1140,7 +1583,16 @@ const forbidES2023IntlBuiltIns = {
   'es/no-intl-pluralrules-prototype-selectrange': ERROR,
 };
 
-const forbidModernESBuiltIns = {
+const forbidSomeES2025Syntax = {
+  'es/no-regexp-duplicate-named-capturing-groups': ERROR,
+  'es/no-regexp-modifiers': ERROR,
+  'es/no-import-attributes': ERROR,
+  'es/no-dynamic-import-options': ERROR,
+  'es/no-trailing-dynamic-import-commas': ERROR,
+  'es/no-json-modules': ERROR,
+};
+
+const forbidModernBuiltIns = {
   ...forbidESAnnexBBuiltIns,
   ...forbidES5BuiltIns,
   ...forbidES2015BuiltIns,
@@ -1153,6 +1605,7 @@ const forbidModernESBuiltIns = {
   ...forbidES2022BuiltIns,
   ...forbidES2023BuiltIns,
   ...forbidES2024BuiltIns,
+  ...forbidES2025BuiltIns,
   ...forbidES2016IntlBuiltIns,
   ...forbidES2017IntlBuiltIns,
   ...forbidES2018IntlBuiltIns,
@@ -1160,16 +1613,24 @@ const forbidModernESBuiltIns = {
   ...forbidES2021IntlBuiltIns,
   ...forbidES2022IntlBuiltIns,
   ...forbidES2023IntlBuiltIns,
+  // prefer using `structuredClone` to create a deep clone
+  'unicorn/prefer-structured-clone': OFF,
 };
 
 const polyfills = {
   // prefer `node:` protocol
   'node/prefer-node-protocol': OFF,
+  // enforces the use of `catch()` on un-returned promises
+  'promise/catch-or-return': OFF,
   // avoid nested `then()` or `catch()` statements
   'promise/no-nesting': OFF,
+  // prefer catch to `then(a, b)` / `then(null, b)` for handling errors
+  'promise/prefer-catch': OFF,
   // prefer `RegExp#test()` over `String#match()` and `RegExp#exec()`
   // use `RegExp#exec()` since it does not have implicit calls under the hood
   'regexp/prefer-regexp-test': OFF,
+  // shorthand promises should be used
+  'sonarjs/prefer-promise-shorthand': OFF,
 };
 
 const transpiledAndPolyfilled = {
@@ -1186,6 +1647,8 @@ const transpiledAndPolyfilled = {
   'es/no-top-level-await': ERROR,
   // unpolyfillable es2015 builtins
   'es/no-proxy': ERROR,
+  // disallow duplicate named capture groups
+  'es/no-regexp-duplicate-named-capturing-groups': OFF,
   'es/no-string-prototype-normalize': ERROR,
   // unpolyfillable es2017 builtins
   'es/no-atomics': ERROR,
@@ -1198,17 +1661,15 @@ const transpiledAndPolyfilled = {
   'regexp/prefer-lookaround': [ERROR, { lookbehind: false, strictTypes: true }],
   // enforce using named capture group in regular expression
   'regexp/prefer-named-capture-group': OFF,
+  ...forbidSomeES2025Syntax,
+  ...forbidCompletelyNonExistentBuiltIns,
 };
 
 const nodePackages = {
   // disallow logical assignment operator shorthand
   'logical-assignment-operators': [ERROR, NEVER],
-  // enforces the use of `catch()` on un-returned promises
-  'promise/catch-or-return': ERROR,
-  // disallow third-party modules which are hiding core modules
-  'node/no-hide-core-modules': OFF,
   // disallow unsupported ECMAScript built-ins on the specified version
-  'node/no-unsupported-features/node-builtins': [ERROR, { version: PACKAGES_NODE_VERSIONS }],
+  'node/no-unsupported-features/node-builtins': [ERROR, { version: PACKAGES_NODE_VERSIONS, allowExperimental: false }],
   // prefer `node:` protocol
   'node/prefer-node-protocol': OFF,
   // prefer promises
@@ -1224,6 +1685,8 @@ const nodePackages = {
   'unicorn/prefer-node-protocol': OFF,
   // prefer omitting the `catch` binding parameter
   'unicorn/prefer-optional-catch-binding': OFF,
+  // prefer using `structuredClone` to create a deep clone
+  'unicorn/prefer-structured-clone': OFF,
   ...disable(forbidES5BuiltIns),
   ...disable(forbidES2015BuiltIns),
   ...disable(forbidES2016BuiltIns),
@@ -1239,6 +1702,7 @@ const nodePackages = {
   ...forbidES2022BuiltIns,
   ...forbidES2023BuiltIns,
   ...forbidES2024BuiltIns,
+  ...forbidES2025BuiltIns,
   ...disable(forbidES2016IntlBuiltIns),
   ...disable(forbidES2017IntlBuiltIns),
   ...forbidES2018IntlBuiltIns,
@@ -1246,21 +1710,24 @@ const nodePackages = {
   ...forbidES2021IntlBuiltIns,
   ...forbidES2022IntlBuiltIns,
   ...forbidES2023IntlBuiltIns,
+  ...forbidSomeES2025Syntax,
 };
 
 const nodeDev = {
   // disallow unsupported ECMAScript built-ins on the specified version
-  'node/no-unsupported-features/node-builtins': [ERROR, { version: DEV_NODE_VERSIONS }],
-  ...disable(forbidModernESBuiltIns),
+  'node/no-unsupported-features/node-builtins': [ERROR, { version: DEV_NODE_VERSIONS, ignores: ['fetch'], allowExperimental: false }],
+  ...disable(forbidModernBuiltIns),
   ...forbidES2023BuiltIns,
   'es/no-array-prototype-findlast-findlastindex': OFF,
   ...forbidES2024BuiltIns,
+  ...forbidES2025BuiltIns,
   'es/no-intl-supportedvaluesof': ERROR,
   ...forbidES2023IntlBuiltIns,
   // ReDoS vulnerability check
   'redos/no-vulnerable': OFF,
   // prefer top-level await
   'unicorn/prefer-top-level-await': ERROR,
+  ...forbidSomeES2025Syntax,
 };
 
 const tests = {
@@ -1294,6 +1761,12 @@ const tests = {
   'no-useless-call': OFF,
   // specify the maximum length of a line in your program
   '@stylistic/js/max-len': [ERROR, { ...base['@stylistic/js/max-len'][1], code: 180 }],
+  // enforces the use of `catch()` on un-returned promises
+  'promise/catch-or-return': OFF,
+  // prefer catch to `then(a, b)` / `then(null, b)` for handling errors
+  'promise/prefer-catch': OFF,
+  // shorthand promises should be used
+  'sonarjs/prefer-promise-shorthand': OFF,
   // enforce passing a message value when throwing a built-in error
   'unicorn/error-message': OFF,
   // prefer `.at()` method for index access and `String#charAt()`
@@ -1405,7 +1878,7 @@ const json = {
   // disallow `Infinity`
   'jsonc/no-infinity': ERROR,
   // disallow irregular whitespace
-  'jsonc/no-irregular-whitespace': ERROR,
+  'jsonc/no-irregular-whitespace': [ERROR, {}],
   // disallow use of multiline strings
   'jsonc/no-multi-str': ERROR,
   // disallow `NaN`
@@ -1454,11 +1927,69 @@ const json = {
   strict: OFF,
 };
 
+const packageJSON = {
+  // reports on unnecessary empty arrays and objects
+  'package-json/no-empty-fields': ERROR,
+  // prevents adding unnecessary / redundant files
+  'package-json/no-redundant-files': ERROR,
+  // enforce that package dependencies are unique
+  'package-json/unique-dependencies': ERROR,
+  // checks existence of local dependencies in the package.json
+  'package-json/valid-local-dependency': ERROR,
+  // enforce that if repository directory is specified, it matches the path to the package.json file
+  'package-json/valid-repository-directory': ERROR,
+  // enforce that package versions are valid semver specifiers
+  'package-json/valid-version': ERROR,
+};
+
+const packagesPackageJSON = {
+  // enforce either object or shorthand declaration for repository
+  'package-json/repository-shorthand': [ERROR, { form: 'object' }],
+  // enforce that package names are valid npm package names
+  'package-json/valid-name': ERROR,
+  // enforce that package.json has all properties required by the npm spec
+  'package-json/valid-package-def': ERROR,
+};
+
+const markdown = {
+  ...disable(forbidModernBuiltIns),
+  ...forbidCompletelyNonExistentBuiltIns,
+  // allow use of console
+  'no-console': OFF,
+  // disallow use of new operator when not part of the assignment or comparison
+  'no-new': OFF,
+  // disallow specified syntax
+  'no-restricted-syntax': OFF,
+  // disallow use of undeclared variables unless mentioned in a /*global */ block
+  'no-undef': OFF,
+  // disallow usage of expressions in statement position
+  'no-unused-expressions': OFF,
+  // disallow declaration of variables that are not used in the code
+  'no-unused-vars': OFF,
+  // require let or const instead of var
+  'no-var': OFF,
+  // require const declarations for variables that are never reassigned after declared
+  'prefer-const': OFF,
+  // disallow use of the `RegExp` constructor in favor of regular expression literals
+  'prefer-regex-literals': OFF,
+  // disallow top-level `await`
+  'es/no-top-level-await': OFF,
+  // ensure imports point to files / modules that can be resolved
+  'import/no-unresolved': OFF,
+  // enforces the use of `catch()` on un-returned promises
+  'promise/catch-or-return': OFF,
+  // enforce that `RegExp#exec` is used instead of `String#match` if no global flag is provided
+  'regexp/prefer-regexp-exec': OFF,
+  // variables should be defined before being used
+  'sonarjs/no-reference-error': OFF,
+  // specify the maximum length of a line in your program
+  '@stylistic/js/max-len': [ERROR, { ...base['@stylistic/js/max-len'][1], code: 200 }],
+};
+
 const globalsESNext = {
   AsyncDisposableStack: READONLY,
   AsyncIterator: READONLY,
   DisposableStack: READONLY,
-  Iterator: READONLY,
   Observable: READONLY,
   SuppressedError: READONLY,
   compositeKey: READONLY,
@@ -1518,13 +2049,17 @@ export default [
     },
     plugins: {
       '@stylistic/js': pluginStylisticJS,
+      '@stylistic/plus': pluginStylisticPlus,
       'array-func': pluginArrayFunc,
+      canonical: pluginCanonical,
+      depend: pluginDepend,
       es: pluginESX,
       'eslint-comments': pluginESlintComments,
-      filenames: pluginFilenames,
       import: pluginImport,
       jsonc: pluginJSONC,
+      markdown: pluginMarkdown,
       node: pluginN,
+      'package-json': pluginPackageJSON,
       promise: pluginPromise,
       qunit: pluginQUnit,
       redos: pluginReDoS,
@@ -1534,6 +2069,7 @@ export default [
     },
     rules: {
       ...base,
+      ...forbidNonStandardBuiltIns,
       ...forbidESAnnexBBuiltIns,
     },
   },
@@ -1562,7 +2098,7 @@ export default [
       'tests/@(unit-pure|worker)/**',
       'tests/compat/@(browsers|hermes|node|rhino)-runner.js',
     ],
-    rules: forbidModernESBuiltIns,
+    rules: forbidModernBuiltIns,
   },
   {
     files: [
@@ -1578,6 +2114,15 @@ export default [
   },
   {
     files: [
+      'packages/core-js?(-pure)/**/instance/**',
+    ],
+    rules: {
+      ...disable(forbidModernBuiltIns),
+      ...forbidCompletelyNonExistentBuiltIns,
+    },
+  },
+  {
+    files: [
       'tests/@(helpers|unit-@(global|pure)|wpt-url-resources)/**',
     ],
     languageOptions: {
@@ -1590,6 +2135,12 @@ export default [
       'tests/**',
     ],
     rules: tests,
+  },
+  {
+    files: [
+      'tests/compat/tests.js',
+    ],
+    rules: forbidCompletelyNonExistentBuiltIns,
   },
   {
     files: [
@@ -1653,7 +2204,7 @@ export default [
   {
     rules: {
       // ensure that filenames match a convention
-      'filenames/match-regex': [ERROR, /^[\da-z]|[a-z][\d\-.a-z]*[\da-z]$/],
+      'canonical/filename-match-regex': [ERROR, { regex: '^[\\da-z]|[a-z][\\d\\-.a-z]*[\\da-z]$' }],
     },
   },
   {
@@ -1662,7 +2213,7 @@ export default [
     ],
     rules: {
       // ensure that filenames match a convention
-      'filenames/match-regex': [ERROR, /^(?:es|esnext|web)(?:\.[a-z][\d\-a-z]*[\da-z])+$/],
+      'canonical/filename-match-regex': [ERROR, { regex: '^(?:es|esnext|web)(?:\\.[a-z][\\d\\-a-z]*[\\da-z])+$' }],
     },
   },
   {
@@ -1671,7 +2222,7 @@ export default [
     ],
     rules: {
       // ensure that filenames match a convention
-      'filenames/match-regex': [ERROR, /^(?:es|esnext|helpers|web)(?:\.[a-z][\d\-a-z]*[\da-z])+$/],
+      'canonical/filename-match-regex': [ERROR, { regex: '^(?:es|esnext|helpers|web)(?:\\.[a-z][\\d\\-a-z]*[\\da-z])+$' }],
     },
   },
   {
@@ -1680,5 +2231,32 @@ export default [
       parser: parserJSONC,
     },
     rules: json,
+  },
+  {
+    files: ['**/package.json'],
+    rules: packageJSON,
+  },
+  {
+    files: ['packages/*/package.json'],
+    rules: packagesPackageJSON,
+  },
+  {
+    files: ['**/*.md'],
+    processor: 'markdown/markdown',
+  },
+  {
+    files: ['**/*.md/*'],
+    rules: {
+      // enforce a case style for filenames
+      'unicorn/filename-case': OFF,
+    },
+  },
+  {
+    files: ['**/*.md/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: markdown,
   },
 ];
